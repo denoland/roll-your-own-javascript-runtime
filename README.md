@@ -1,6 +1,8 @@
 # `runjs`
 
-A repository for the [Roll your own JavaScript runtime](https://deno.com/blog/roll-your-own-javascript-runtime) blog post.
+A repository for the
+[Roll your own JavaScript runtime](https://deno.com/blog/roll-your-own-javascript-runtime)
+blog post.
 
 ```shellsession
 $ cargo run
@@ -12,5 +14,4 @@ $ cargo run
 [out]: "Read from a file" "./log.txt" "contents:" "I can write to a file."
 [out]: "Removing file" "./log.txt"
 [out]: "File removed"
-
 ```

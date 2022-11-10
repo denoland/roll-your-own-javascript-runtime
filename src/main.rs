@@ -1,6 +1,6 @@
+use deno_core::error::AnyError;
 use deno_core::op;
 use deno_core::Extension;
-use deno_core::error::AnyError;
 use std::rc::Rc;
 
 #[op]
