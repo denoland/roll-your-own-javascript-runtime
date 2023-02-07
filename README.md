@@ -4,6 +4,9 @@ A repository for the
 [Roll your own JavaScript runtime](https://deno.com/blog/roll-your-own-javascript-runtime)
 blog post.
 
+UPDATE 2023-02-07: This repo has been updated to support loading JavaScript and
+TypeScript files.
+
 ```shellsession
 $ cargo run
     Finished dev [unoptimized + debuginfo] target(s) in 0.05s

@@ -28,5 +28,9 @@
     removeFile: (path) => {
       return ops.op_remove_file(path);
     },
+
+    fetch: async (url) => {
+      return ops.op_fetch(url);
+    },
   };
 })(globalThis);
