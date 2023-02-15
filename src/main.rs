@@ -38,7 +38,7 @@ impl deno_core::ModuleLoader for TsModuleLoader {
         &self,
         specifier: &str,
         referrer: &str,
-        kind: deno_core::ResolutionKind,
+        _kind: deno_core::ResolutionKind,
     ) -> Result<deno_core::ModuleSpecifier, deno_core::error::AnyError> {
         deno_core::resolve_import(specifier, referrer).map_err(|e| e.into())
     }
@@ -46,8 +46,8 @@ impl deno_core::ModuleLoader for TsModuleLoader {
     fn load(
         &self,
         module_specifier: &deno_core::ModuleSpecifier,
-        maybe_referrer: Option<deno_core::ModuleSpecifier>,
-        is_dyn_import: bool,
+        _maybe_referrer: Option<deno_core::ModuleSpecifier>,
+        _is_dyn_import: bool,
     ) -> std::pin::Pin<Box<deno_core::ModuleSourceFuture>> {
         let module_specifier = module_specifier.clone();
         async move {
@@ -123,11 +123,19 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
 }
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.is_empty() {
+        eprintln!("Usage: runjs <file>");
+        std::process::exit(1);
+    }
+    let file_path = &args[1];
+
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .unwrap();
-    if let Err(error) = runtime.block_on(run_js("./example.ts")) {
-        eprintln!("error: {}", error);
+    if let Err(error) = runtime.block_on(run_js(file_path)) {
+        eprintln!("error: {error}");
     }
 }
