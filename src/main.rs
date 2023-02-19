@@ -125,7 +125,7 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    if args.is_empty() {
+    if args.len() <= 1 {
         eprintln!("Usage: runjs <file>");
         std::process::exit(1);
     }
