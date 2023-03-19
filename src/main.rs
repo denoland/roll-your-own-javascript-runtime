@@ -3,6 +3,7 @@ use deno_ast::ParseParams;
 use deno_ast::SourceTextInfo;
 use deno_core::error::AnyError;
 use deno_core::futures::FutureExt;
+use deno_core::include_js_files;
 use deno_core::op;
 use deno_core::Extension;
 use std::rc::Rc;
@@ -99,6 +100,9 @@ impl deno_core::ModuleLoader for TsModuleLoader {
 async fn run_js(file_path: &str) -> Result<(), AnyError> {
     let main_module = deno_core::resolve_path(file_path)?;
     let runjs_extension = Extension::builder("runjs")
+        .esm(include_js_files!(
+            "runtime.js",
+        ))
         .ops(vec![
             op_read_file::decl(),
             op_write_file::decl(),
@@ -111,10 +115,6 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
         extensions: vec![runjs_extension],
         ..Default::default()
     });
-    const RUNTIME_JAVASCRIPT_CORE: &str = include_str!("./runtime.js");
-    js_runtime
-        .execute_script("[runjs:runtime.js]", RUNTIME_JAVASCRIPT_CORE)
-        .unwrap();
 
     let mod_id = js_runtime.load_main_module(&main_module, None).await?;
     let result = js_runtime.mod_evaluate(mod_id);
