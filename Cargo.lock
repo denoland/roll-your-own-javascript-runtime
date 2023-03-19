@@ -244,9 +244,9 @@ dependencies = [
 
 [[package]]
 name = "deno_core"
-version = "0.171.0"
+version = "0.174.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2dc41944f05dfeacfc2610e91f40ddcf246f3aeeac8ae4c26df46bfbf01a3902"
+checksum = "8077367e7e7ab2f52f1bc6285af301a1a6328b984991a3ff22236ad79862fce3"
 dependencies = [
  "anyhow",
  "bytes",
@@ -269,9 +269,9 @@ dependencies = [
 
 [[package]]
 name = "deno_ops"
-version = "0.49.0"
+version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4740bc5738ad07dc1f523a232a4079a995fa2ad11efd71e09e8e32bf28f21ee1"
+checksum = "dc9d81c9e5cd9590be6043546f4565670cb6e6a7de1986fd1c354adce04eb9d4"
 dependencies = [
  "once_cell",
  "pmutil",
@@ -894,9 +894,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.16.0"
+version = "1.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86f0b0d4bf799edbc74508c1e8bf170ff5f41238e5f8225603ca7caaae2b7860"
+checksum = "b7e5500299e16ebb147ae15a00a942af264cf3688f47923b8fc2cd5858f23ad3"
 
 [[package]]
 name = "openssl"
@@ -1158,9 +1158,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.6.0"
+version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c4eb3267174b8c6c2f654116623910a0fef09c4753f8dd83db29c48a0df988b"
+checksum = "48aaa5748ba571fb95cd2c85c09f629215d3a6ece942baa100950af03a34f733"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -1379,9 +1379,9 @@ dependencies = [
 
 [[package]]
 name = "serde_v8"
-version = "0.82.0"
+version = "0.85.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c060fd38f18c420e82ab21592ec1f088b39bccb6897b1dda394d63628e22158d"
+checksum = "dba78050262072324b0b1efba11db7367735251adf7ec734fd75780c598c743b"
 dependencies = [
  "bytes",
  "derive_more",
@@ -2097,9 +2097,9 @@ dependencies = [
 
 [[package]]
 name = "v8"
-version = "0.60.1"
+version = "0.64.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07fd5b3ed559897ff02c0f62bc0a5f300bfe79bb4c77a50031b8df771701c628"
+checksum = "a2287b485fa902172da3722d7e557e083afd63921777e0c6e5c0fba28e6d59d3"
 dependencies = [
  "bitflags",
  "fslock",
