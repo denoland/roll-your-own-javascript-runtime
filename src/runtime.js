@@ -30,5 +30,8 @@ const runjs = {
   },
 };
 
+globalThis.setTimeout = (callback, delay) => {
+  core.opAsync("op_set_timeout", delay).then(callback);
+};
 globalThis.console = console;
 globalThis.runjs = runjs;

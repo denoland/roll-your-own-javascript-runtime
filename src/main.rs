@@ -27,6 +27,12 @@ async fn op_fetch(url: String) -> Result<String, AnyError> {
 }
 
 #[op]
+async fn op_set_timeout(delay: u64) -> Result<(), AnyError> {
+    tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+    Ok(())
+}
+
+#[op]
 fn op_remove_file(path: String) -> Result<(), AnyError> {
     std::fs::remove_file(path)?;
     Ok(())
@@ -108,6 +114,7 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
             op_write_file::decl(),
             op_remove_file::decl(),
             op_fetch::decl(),
+            op_set_timeout::decl(),
         ])
         .build();
     let mut js_runtime = deno_core::JsRuntime::new(deno_core::RuntimeOptions {
