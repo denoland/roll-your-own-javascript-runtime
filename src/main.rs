@@ -107,7 +107,7 @@ static RUNTIME_SNAPSHOT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/RUNJS
 
 async fn run_js(file_path: &str) -> Result<(), AnyError> {
     let main_module = deno_core::resolve_path(file_path)?;
-    let runjs_extension = Extension::builder("runjs_ops")
+    let runjs_extension = Extension::builder("runjs")
         .ops(vec![
             op_read_file::decl(),
             op_write_file::decl(),

@@ -4,7 +4,7 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    let runjs_extension = Extension::builder("runjs_js")
+    let runjs_extension = Extension::builder("runjs")
         .esm(include_js_files!("src/runtime.js",))
         .build();
 
