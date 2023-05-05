@@ -1,3 +1,4 @@
+use std::env;
 use deno_ast::MediaType;
 use deno_ast::ParseParams;
 use deno_ast::SourceTextInfo;
@@ -46,22 +47,22 @@ impl deno_core::ModuleLoader for TsModuleLoader {
         specifier: &str,
         referrer: &str,
         _kind: deno_core::ResolutionKind,
-    ) -> Result<deno_core::ModuleSpecifier, deno_core::error::AnyError> {
+    ) -> Result<deno_core::ModuleSpecifier, AnyError> {
         deno_core::resolve_import(specifier, referrer).map_err(|e| e.into())
     }
 
     fn load(
         &self,
         module_specifier: &deno_core::ModuleSpecifier,
-        _maybe_referrer: Option<deno_core::ModuleSpecifier>,
+        _maybe_referrer: Option<&reqwest::Url>,
         _is_dyn_import: bool,
     ) -> std::pin::Pin<Box<deno_core::ModuleSourceFuture>> {
         let module_specifier = module_specifier.clone();
         async move {
             let path = module_specifier.to_file_path().unwrap();
 
-            let media_type = MediaType::from(&path);
-            let (module_type, should_transpile) = match MediaType::from(&path) {
+            let media_type = MediaType::from_path(&path);
+            let (module_type, should_transpile) = match MediaType::from_path(&path) {
                 MediaType::JavaScript | MediaType::Mjs | MediaType::Cjs => {
                     (deno_core::ModuleType::JavaScript, false)
                 }
@@ -91,12 +92,11 @@ impl deno_core::ModuleLoader for TsModuleLoader {
             } else {
                 code
             };
-            let module = deno_core::ModuleSource {
-                code: code.into_bytes().into_boxed_slice(),
+            let module = deno_core::ModuleSource::new(
                 module_type,
-                module_url_specified: module_specifier.to_string(),
-                module_url_found: module_specifier.to_string(),
-            };
+                deno_core::ModuleCode::from(code),
+                &module_specifier
+            );
             Ok(module)
         }
         .boxed_local()
@@ -106,7 +106,7 @@ impl deno_core::ModuleLoader for TsModuleLoader {
 static RUNTIME_SNAPSHOT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/RUNJS_SNAPSHOT.bin"));
 
 async fn run_js(file_path: &str) -> Result<(), AnyError> {
-    let main_module = deno_core::resolve_path(file_path)?;
+    let main_module = deno_core::resolve_path(file_path, env::current_dir()?.as_path())?;
     let runjs_extension = Extension::builder("runjs")
         .ops(vec![
             op_read_file::decl(),
@@ -115,6 +115,7 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
             op_fetch::decl(),
             op_set_timeout::decl(),
         ])
+        .force_op_registration()
         .build();
     let mut js_runtime = deno_core::JsRuntime::new(deno_core::RuntimeOptions {
         module_loader: Some(Rc::new(TsModuleLoader)),
@@ -130,13 +131,13 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let args = &env::args().collect::<Vec<String>>()[1..];
 
     if args.is_empty() {
         eprintln!("Usage: runjs <file>");
         std::process::exit(1);
     }
-    let file_path = &args[1];
+    let file_path = &args[0];
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
