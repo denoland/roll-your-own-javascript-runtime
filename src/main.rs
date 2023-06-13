@@ -115,7 +115,6 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
             op_fetch::decl(),
             op_set_timeout::decl(),
         ])
-        .force_op_registration()
         .build();
     let mut js_runtime = deno_core::JsRuntime::new(deno_core::RuntimeOptions {
         module_loader: Some(Rc::new(TsModuleLoader)),
