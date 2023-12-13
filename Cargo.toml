@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-deno_ast = { version = "0.27.1", features = ["transpiling"] }
-deno_core = "0.190.0"
+deno_ast = { version = "0.31.3", features = ["transpiling"] }
+deno_core = "0.231.0"
 reqwest = "0.11.17"
 tokio = { version = "1.28.0", features = ["full"] }
 
 [build-dependencies]
-deno_core = "0.190.0"
+deno_core = "0.231.0"

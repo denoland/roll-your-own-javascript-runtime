@@ -16,9 +16,10 @@ fn main() {
             cargo_manifest_dir: env!("CARGO_MANIFEST_DIR"),
             snapshot_path,
             startup_snapshot: None,
-            extensions: vec![runjs::init_js_only()],
+            skip_op_registration: false,
+            extensions: vec![runjs::init_ops_and_esm()],
             compression_cb: None,
-            snapshot_module_load_cb: None,
+            with_runtime_cb: None,
         }
     );
 }
