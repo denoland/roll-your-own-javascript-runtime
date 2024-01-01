@@ -4,6 +4,7 @@ A repository for the Roll your own JavaScript runtime blog post series:
 
 - [Roll your own JavaScript runtime](https://deno.com/blog/roll-your-own-javascript-runtime)
 - [Roll your own JavaScript runtime, pt. 2](https://deno.com/blog/roll-your-own-javascript-runtime-pt2)
+- [Roll your own JavaScript runtime, pt. 3](https://deno.com/blog/roll-your-own-javascript-runtime-pt3)
 
 ## UPDATE 2023-04-26
 
