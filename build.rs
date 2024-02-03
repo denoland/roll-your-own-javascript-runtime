@@ -3,7 +3,11 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    extension!(runjs, esm_entry_point = "ext:runjs/src/runtime.js", esm = ["src/runtime.js"]);
+    extension!(
+        runjs,
+        esm_entry_point = "ext:runjs/src/runtime.js",
+        esm = ["src/runtime.js"]
+    );
 
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let snapshot_path = out_dir.join("RUNJS_SNAPSHOT.bin");

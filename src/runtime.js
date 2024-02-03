@@ -1,4 +1,4 @@
-const { core } = Deno;
+import { core } from "ext:core/mod.js";
 const { ops } = core;
 
 function argsToMessage(...args) {
