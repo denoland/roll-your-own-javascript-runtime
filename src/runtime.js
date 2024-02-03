@@ -1,4 +1,4 @@
-const { core } = Deno;
+import { core } from "ext:core/mod.js";
 const { ops } = core;
 
 function argsToMessage(...args) {
@@ -26,12 +26,12 @@ const runjs = {
   },
 
   fetch: async (url) => {
-    return core.opAsync("op_fetch", url);
+    return ops.op_fetch(url);
   },
 };
 
 globalThis.setTimeout = (callback, delay) => {
-  core.opAsync("op_set_timeout", delay).then(callback);
+  ops.op_set_timeout(delay).then(callback);
 };
 globalThis.console = console;
 globalThis.runjs = runjs;

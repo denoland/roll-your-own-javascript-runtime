@@ -5,7 +5,8 @@ use std::path::PathBuf;
 fn main() {
     extension!(
         runjs,
-        js = ["src/runtime.js",]
+        esm_entry_point = "ext:runjs/src/runtime.js",
+        esm = ["src/runtime.js"]
     );
 
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
@@ -20,6 +21,6 @@ fn main() {
             extensions: vec![runjs::init_ops_and_esm()],
             compression_cb: None,
             with_runtime_cb: None,
-        }
+        },
     );
 }

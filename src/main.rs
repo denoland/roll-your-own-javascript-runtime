@@ -1,12 +1,13 @@
-use std::env;
 use deno_ast::MediaType;
 use deno_ast::ParseParams;
 use deno_ast::SourceTextInfo;
 use deno_core::error::AnyError;
-use deno_core::futures::FutureExt;
+use deno_core::extension;
 use deno_core::op2;
-use deno_core::Extension;
+use deno_core::ModuleLoadResponse;
+use deno_core::RequestedModuleType;
 use deno_core::Snapshot;
+use std::env;
 use std::rc::Rc;
 
 #[op2(async)]
@@ -59,9 +60,11 @@ impl deno_core::ModuleLoader for TsModuleLoader {
         module_specifier: &deno_core::ModuleSpecifier,
         _maybe_referrer: Option<&reqwest::Url>,
         _is_dyn_import: bool,
-    ) -> std::pin::Pin<Box<deno_core::ModuleSourceFuture>> {
+        _requested_module_type: RequestedModuleType,
+    ) -> ModuleLoadResponse {
         let module_specifier = module_specifier.clone();
-        async move {
+
+        let get_module = move || {
             let path = module_specifier.to_file_path().unwrap();
 
             let media_type = MediaType::from_path(&path);
@@ -97,39 +100,48 @@ impl deno_core::ModuleLoader for TsModuleLoader {
             };
             let module = deno_core::ModuleSource::new(
                 module_type,
-                deno_core::ModuleCode::from(code),
-                &module_specifier
+                deno_core::ModuleSourceCode::String(deno_core::ModuleCodeString::from(code)),
+                &module_specifier,
             );
+
             Ok(module)
-        }
-        .boxed_local()
+        };
+
+        ModuleLoadResponse::Sync(get_module())
     }
 }
 
 static RUNTIME_SNAPSHOT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/RUNJS_SNAPSHOT.bin"));
 
+extension!(
+    runjs,
+    ops = [
+        op_read_file,
+        op_write_file,
+        op_remove_file,
+        op_fetch,
+        op_set_timeout
+    ]
+);
+
 async fn run_js(file_path: &str) -> Result<(), AnyError> {
     let main_module = deno_core::resolve_path(file_path, env::current_dir()?.as_path())?;
-    let runjs_extension = Extension::builder("runjs")
-        .ops(vec![
-            op_read_file::decl(),
-            op_write_file::decl(),
-            op_remove_file::decl(),
-            op_fetch::decl(),
-            op_set_timeout::decl(),
-        ])
-        .build();
     let mut js_runtime = deno_core::JsRuntime::new(deno_core::RuntimeOptions {
         module_loader: Some(Rc::new(TsModuleLoader)),
         startup_snapshot: Some(Snapshot::Static(RUNTIME_SNAPSHOT)),
-        extensions: vec![runjs_extension],
+        extensions: vec![runjs::init_ops()],
         ..Default::default()
     });
 
     let mod_id = js_runtime.load_main_module(&main_module, None).await?;
     let result = js_runtime.mod_evaluate(mod_id);
-    js_runtime.run_event_loop(false).await?;
-    result.await?
+    js_runtime
+        .run_event_loop(deno_core::PollEventLoopOptions {
+            wait_for_inspector: false,
+            pump_v8_message_loop: false,
+        })
+        .await?;
+    result.await
 }
 
 fn main() {
