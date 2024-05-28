@@ -26,12 +26,12 @@ const runjs = {
   },
 
   fetch: async (url) => {
-    return core.opAsync("op_fetch", url);
+    return ops.op_fetch(url);
   },
 };
 
 globalThis.setTimeout = (callback, delay) => {
-  core.opAsync("op_set_timeout", delay).then(callback);
+  ops.op_set_timeout(delay).then(callback);
 };
 globalThis.console = console;
 globalThis.runjs = runjs;
