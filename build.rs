@@ -4,8 +4,11 @@ use std::path::PathBuf;
 
 fn main() {
   extension!(
+    // extension name
     runjs,
+    // list of all JS files in the extension
     esm_entry_point = "ext:runjs/src/runtime.js",
+    // the entrypoint to our extension
     esm = ["src/runtime.js"]
   );
 

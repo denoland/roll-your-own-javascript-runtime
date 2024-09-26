@@ -23,10 +23,11 @@ globalThis.runjs = {
   removeFile: (path) => {
     return core.ops.op_remove_file(path);
   },
-  setTimeout: async (callback, delay) => {
-    core.ops.op_set_timeout(delay).then(callback);
-  },
   fetch: async (url) => {
     return core.ops.op_fetch(url);
   },
+};
+
+globalThis.setTimeout = async (callback, delay) => {
+  core.ops.op_set_timeout(delay).then(callback);
 };
