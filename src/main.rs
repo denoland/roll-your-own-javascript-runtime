@@ -64,7 +64,7 @@ impl deno_core::ModuleLoader for TsModuleLoader {
   ) -> ModuleLoadResponse {
     let module_specifier = module_specifier.clone();
 
-    let module_load = Box::pin(async move {
+    let module_load = move || {
       let path = module_specifier.to_file_path().unwrap();
 
       let media_type = MediaType::from_path(&path);
@@ -108,9 +108,9 @@ impl deno_core::ModuleLoader for TsModuleLoader {
         None,
       );
       Ok(module)
-    });
+    };
 
-    ModuleLoadResponse::Async(module_load)
+    ModuleLoadResponse::Sync(module_load())
   }
 }
 
