@@ -16,7 +16,6 @@ async fn op_read_file(#[string] path: String) -> Result<String, AnyError> {
 }
 
 #[op2(async)]
-#[string]
 async fn op_write_file(
   #[string] path: String,
   #[string] contents: String,
@@ -118,16 +117,16 @@ impl deno_core::ModuleLoader for TsModuleLoader {
 static RUNTIME_SNAPSHOT: &[u8] =
   include_bytes!(concat!(env!("OUT_DIR"), "/RUNJS_SNAPSHOT.bin"));
 
-extension! {
-    runjs,
-    ops = [
-        op_read_file,
-        op_write_file,
-        op_remove_file,
-        op_fetch,
-        op_set_timeout,
-    ]
-}
+extension!(
+  runjs,
+  ops = [
+    op_read_file,
+    op_write_file,
+    op_remove_file,
+    op_fetch,
+    op_set_timeout,
+  ]
+);
 
 async fn run_js(file_path: &str) -> Result<(), AnyError> {
   let main_module =
