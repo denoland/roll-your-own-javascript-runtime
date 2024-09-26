@@ -1,11 +1,10 @@
 const { core } = Deno;
-const { ops } = core;
 
 function argsToMessage(...args) {
   return args.map((arg) => JSON.stringify(arg)).join(" ");
 }
 
-const console = {
+globalThis.console = {
   log: (...args) => {
     core.print(`[out]: ${argsToMessage(...args)}\n`, false);
   },
@@ -14,24 +13,21 @@ const console = {
   },
 };
 
-const runjs = {
+globalThis.runjs = {
   readFile: (path) => {
-    return ops.op_read_file(path);
+    return core.ops.op_read_file(path);
   },
   writeFile: (path, contents) => {
-    return ops.op_write_file(path, contents);
+    return core.ops.op_write_file(path, contents);
   },
   removeFile: (path) => {
-    return ops.op_remove_file(path);
+    return core.ops.op_remove_file(path);
   },
-
   fetch: async (url) => {
-    return ops.op_fetch(url);
+    return core.ops.op_fetch(url);
   },
 };
 
-globalThis.setTimeout = (callback, delay) => {
-  ops.op_set_timeout(delay).then(callback);
+globalThis.setTimeout = async (callback, delay) => {
+  core.ops.op_set_timeout(delay).then(callback);
 };
-globalThis.console = console;
-globalThis.runjs = runjs;
