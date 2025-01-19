@@ -5,8 +5,15 @@ use deno_core::extension;
 use deno_core::op2;
 use deno_core::ModuleLoadResponse;
 use deno_core::ModuleSourceCode;
+use deno_fs::RealFs;
+use deno_runtime::deno_permissions::PermissionsContainer;
+use deno_runtime::permissions::RuntimePermissionDescriptorParser;
+use deno_runtime::worker::MainWorker;
+use deno_runtime::worker::WorkerOptions;
+use deno_runtime::worker::WorkerServiceOptions;
 use std::env;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[op2(async)]
 #[string]
@@ -26,7 +33,7 @@ async fn op_write_file(
 
 #[op2(async)]
 #[string]
-async fn op_fetch(#[string] url: String) -> Result<String, AnyError> {
+async fn op_fa_fetch(#[string] url: String) -> Result<String, AnyError> {
   let body = reqwest::get(url).await?.text().await?;
   Ok(body)
 }
@@ -123,29 +130,49 @@ extension!(
     op_read_file,
     op_write_file,
     op_remove_file,
-    op_fetch,
+    op_fa_fetch,
     op_set_timeout,
-  ]
+  ],
 );
 
 async fn run_js(file_path: &str) -> Result<(), AnyError> {
   let main_module =
     deno_core::resolve_path(file_path, env::current_dir()?.as_path())?;
-  let mut js_runtime = deno_core::JsRuntime::new(deno_core::RuntimeOptions {
-    module_loader: Some(Rc::new(TsModuleLoader)),
-    startup_snapshot: Some(RUNTIME_SNAPSHOT),
-    extensions: vec![runjs::init_ops()],
-    ..Default::default()
-  });
 
-  let mod_id = js_runtime.load_main_es_module(&main_module).await?;
-  let result = js_runtime.mod_evaluate(mod_id);
-  js_runtime.run_event_loop(Default::default()).await?;
-  result.await
+  let fs = Arc::new(RealFs);
+  let permission_desc_parser =
+    Arc::new(RuntimePermissionDescriptorParser::new(fs.clone()));
+
+  let mut worker = MainWorker::bootstrap_from_options(
+    main_module.clone(),
+    WorkerServiceOptions {
+      module_loader: Rc::new(TsModuleLoader),
+      permissions: PermissionsContainer::allow_all(permission_desc_parser),
+      blob_store: Default::default(),
+      broadcast_channel: Default::default(),
+      feature_checker: Default::default(),
+      node_services: Default::default(),
+      npm_process_state_provider: Default::default(),
+      root_cert_store_provider: Default::default(),
+      shared_array_buffer_store: Default::default(),
+      compiled_wasm_module_store: Default::default(),
+      v8_code_cache: Default::default(),
+      fs,
+    },
+    WorkerOptions {
+      extensions: vec![runjs::init_ops()],
+      startup_snapshot: Some(RUNTIME_SNAPSHOT),
+      ..Default::default()
+    },
+  );
+  worker.execute_main_module(&main_module).await?;
+  worker.run_event_loop(false).await
 }
 
 fn main() {
   let args = &env::args().collect::<Vec<String>>()[1..];
+
+  //println!("OUT_DIR: {}", env!("OUT_DIR"));
 
   if args.is_empty() {
     eprintln!("Usage: runjs <file>");

@@ -15,18 +15,13 @@ fn main() {
   let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
   let snapshot_path = out_dir.join("RUNJS_SNAPSHOT.bin");
 
-  let snapshot = deno_core::snapshot::create_snapshot(
-    deno_core::snapshot::CreateSnapshotOptions {
-      cargo_manifest_dir: env!("CARGO_MANIFEST_DIR"),
-      startup_snapshot: None,
-      skip_op_registration: false,
-      extensions: vec![runjs::init_ops_and_esm()],
-      with_runtime_cb: None,
-      extension_transpiler: None,
-    },
-    None,
-  )
-  .unwrap();
+  let snapshot_options =
+    deno_runtime::ops::bootstrap::SnapshotOptions::default();
 
-  std::fs::write(snapshot_path, snapshot.output).unwrap();
+  //vec![runjs::init_ops_and_esm()],
+  deno_runtime::snapshot::create_runtime_snapshot(
+    snapshot_path,
+    snapshot_options,
+    vec![runjs::init_ops_and_esm()],
+  );
 }

@@ -28,6 +28,11 @@ globalThis.runjs = {
   },
 };
 
+globalThis.report = () => {
+  core.print(`REPORT_CORE: ${argsToMessage(Object.keys(core))}\n`);
+  core.print(`REPORT_OPS: ${argsToMessage(Object.keys(core.ops))}\n`);
+};
+
 globalThis.setTimeout = async (callback, delay) => {
   core.ops.op_set_timeout(delay).then(callback);
 };
