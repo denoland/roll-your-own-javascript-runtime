@@ -3,9 +3,12 @@ use deno_ast::ParseParams;
 use deno_core::error::AnyError;
 use deno_core::extension;
 use deno_core::op2;
+use deno_core::ModuleId;
 use deno_core::ModuleLoadResponse;
 use deno_core::ModuleSourceCode;
 use deno_fs::RealFs;
+use deno_runtime::deno_core::v8;
+use deno_runtime::deno_core::JsRuntime;
 use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::deno_permissions::PermissionsContainer;
 use deno_runtime::permissions::RuntimePermissionDescriptorParser;
@@ -218,8 +221,8 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
     let runtime_copy = Arc::clone(&runtime);
     let (tx, mut rx): (Sender<Operation>, Receiver<Operation>) = channel(64);
     let file_path = file_path.clone();
-    // TODO: copy this worker_id into the worker so it knows its own id.
-    let worker_id = rand_string();
+    let worker_id = Arc::new(rand_string());
+    let worker_id_clone = Arc::clone(&worker_id);
 
     // Launch a new thread for running the Tokio runtime and Worker operations
     let handle = thread::spawn(move || {
@@ -245,6 +248,19 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
               match worker.preload_main_module(&main_module).await {
                 Ok(main_module_id) => {
                   if let Err(e) = worker.evaluate_module(main_module_id).await {
+                    response_channel
+                      .send(Err(e))
+                      .await
+                      .expect("failed sending result response");
+                  }
+
+                  if let Err(e) = register_worker_id_with_worker(
+                    &mut worker,
+                    main_module_id,
+                    Arc::clone(&worker_id_clone),
+                  )
+                  .await
+                  {
                     response_channel
                       .send(Err(e))
                       .await
@@ -341,4 +357,47 @@ fn rand_string() -> String {
     .map(char::from)
     .take(7)
     .collect()
+}
+
+async fn register_worker_id_with_worker(
+  worker: &mut MainWorker,
+  main_module_id: ModuleId,
+  worker_id: Arc<String>,
+) -> Result<(), AnyError> {
+  let fut = {
+    let ns = worker.js_runtime.get_module_namespace(main_module_id)?;
+    let mut scope = worker.js_runtime.handle_scope();
+
+    // This has to be exported from the JS module in order to be found.
+    let function_name = "registerWorkerId";
+
+    let fn_key = v8::String::new(&mut scope, function_name).unwrap();
+    let fn_local: v8::Local<v8::Function> = ns
+      .open(&mut scope)
+      .get(&mut scope, fn_key.into())
+      .ok_or_else(|| {
+        AnyError::msg(format!("no such function found: {}", function_name))
+      })?
+      .try_into()?;
+
+    let fn_global = v8::Global::new(&mut scope, fn_local);
+
+    let mut args: Vec<v8::Global<v8::Value>> = Vec::new();
+
+    let worker_id_v8_string_local =
+      v8::String::new(&mut scope, worker_id.as_str()).unwrap();
+
+    let worker_id_v8_string_local_value: v8::Local<v8::Value> =
+      worker_id_v8_string_local.into();
+
+    args.push(v8::Global::new(&mut scope, worker_id_v8_string_local_value));
+
+    JsRuntime::scoped_call_with_args(&mut scope, &fn_global, &args)
+  };
+
+  worker.run_event_loop(false).await?;
+
+  fut.await?;
+
+  Ok(())
 }
