@@ -48,3 +48,34 @@ globalThis.bark = () => {
 globalThis.setTimeout = async (callback, delay) => {
   core.ops.op_set_timeout(delay).then(callback);
 };
+
+globalThis.TASKS = {};
+
+globalThis.registerTask = (id, callback) => {
+  globalThis.TASKS[id] = callback;
+  // register it also with an op that keeps thread-safe state, a HashSet.
+};
+
+function getNextTaskId() {
+  // TODO: use the op to get the next task id, so it can be synchronized
+  // across all workers.
+  //return core.ops.op_get_next_task_id();
+  for (const taskId in TASKS) {
+    return taskId;
+  }
+}
+
+globalThis.runAllTasks = async () => {
+  // Get the next task by running an op that returns the next task id to run.
+  // The look up just that one.
+  let cb, taskId;
+
+  while ((taskId = getNextTaskId()) !== undefined) {
+    cb = TASKS[taskId];
+    delete TASKS[taskId];
+
+    if (cb) {
+      await cb();
+    }
+  }
+};
