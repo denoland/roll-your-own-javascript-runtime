@@ -14,12 +14,16 @@ use deno_runtime::worker::WorkerOptions;
 use deno_runtime::worker::WorkerServiceOptions;
 use deno_runtime::BootstrapOptions;
 use deno_runtime::WorkerExecutionMode;
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 use std::env;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+
+const MAX_WORKERS: usize = 4;
 
 #[derive(Debug)]
 pub enum Operation {
@@ -210,10 +214,12 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
 
   let mut handles = vec![];
 
-  for i in 0..1 {
+  for _ in 0..num_workers() {
     let runtime_copy = Arc::clone(&runtime);
     let (tx, mut rx): (Sender<Operation>, Receiver<Operation>) = channel(64);
     let file_path = file_path.clone();
+    // TODO: copy this worker_id into the worker so it knows its own id.
+    let worker_id = rand_string();
 
     // Launch a new thread for running the Tokio runtime and Worker operations
     let handle = thread::spawn(move || {
@@ -256,13 +262,13 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
       });
     });
 
-    handles.push((handle, tx));
+    handles.push((handle, (tx, worker_id)));
   }
 
   let (join_handles, operation_senders): (Vec<_>, Vec<_>) =
     handles.into_iter().unzip();
 
-  for operation_sender in operation_senders {
+  for (operation_sender, worker_id) in operation_senders {
     let rt = runtime.read().expect("could not get read lock on runtime");
 
     rt.spawn(async move {
@@ -279,7 +285,7 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
       while let Some(message) = notify_start_response_rx.recv().await {
         match message {
           Ok(()) => {
-            println!("worker finished");
+            println!("worker {worker_id} finished");
           }
           Err(e) => {
             eprintln!("worker error: {:?}", e);
@@ -296,6 +302,10 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
   }
 
   Ok(())
+}
+
+fn num_workers() -> usize {
+  num_cpus::get().min(MAX_WORKERS)
 }
 
 fn main() {
@@ -316,4 +326,12 @@ fn main() {
   if let Err(error) = run_js(file_path.to_string()) {
     eprintln!("error: {error}");
   }
+}
+
+fn rand_string() -> String {
+  std::iter::repeat(())
+    .map(|()| thread_rng().sample(Alphanumeric))
+    .map(char::from)
+    .take(7)
+    .collect()
 }
