@@ -6,6 +6,7 @@ use deno_core::op2;
 use deno_core::ModuleLoadResponse;
 use deno_core::ModuleSourceCode;
 use deno_fs::RealFs;
+use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::deno_permissions::PermissionsContainer;
 use deno_runtime::permissions::RuntimePermissionDescriptorParser;
 use deno_runtime::worker::MainWorker;
@@ -15,7 +16,21 @@ use deno_runtime::BootstrapOptions;
 use deno_runtime::WorkerExecutionMode;
 use std::env;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
+use std::thread;
+use tokio::runtime::Runtime;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+
+#[derive(Debug)]
+pub enum Operation {
+  NotifyStart(Sender<Result<(), deno_core::anyhow::Error>>),
+  NotifyDone(Sender<Result<(), deno_core::anyhow::Error>>),
+}
+
+pub struct AsyncRuntimeHandle {
+  pub runtime: Arc<RwLock<Runtime>>,
+  pub operation_sender: Sender<Operation>,
+}
 
 #[op2(async)]
 #[string]
@@ -147,10 +162,7 @@ extension!(
   esm = ["src/runtime.js"]
 );
 
-async fn run_js(file_path: &str) -> Result<(), AnyError> {
-  let main_module =
-    deno_core::resolve_path(file_path, env::current_dir()?.as_path())?;
-
+fn build_worker(main_module: &ModuleSpecifier) -> Result<MainWorker, AnyError> {
   let fs = Arc::new(RealFs);
   let permission_desc_parser =
     Arc::new(RuntimePermissionDescriptorParser::new(fs.clone()));
@@ -160,7 +172,7 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
     ..Default::default()
   };
 
-  let mut worker = MainWorker::bootstrap_from_options(
+  let worker = MainWorker::bootstrap_from_options(
     main_module.clone(),
     WorkerServiceOptions {
       module_loader: Rc::new(TsModuleLoader),
@@ -185,8 +197,89 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
       ..Default::default()
     },
   );
-  worker.execute_main_module(&main_module).await?;
-  worker.run_event_loop(false).await
+
+  Ok(worker)
+}
+
+fn run_js(file_path: String) -> Result<(), AnyError> {
+  let (tx, mut rx): (Sender<Operation>, Receiver<Operation>) = channel(64);
+
+  let runtime = tokio::runtime::Builder::new_current_thread()
+    .enable_all()
+    .build()
+    .expect("could not build tokio runtime");
+
+  let runtime = Arc::new(RwLock::new(runtime));
+
+  let runtime_copy = Arc::clone(&runtime);
+
+  // Launch a new thread for running the Tokio runtime and Worker operations
+  let handle = thread::spawn(move || {
+    let rt = runtime_copy
+      .read()
+      .expect("could not get read lock for runtime");
+
+    // Block on the async code
+    rt.block_on(async {
+      let main_module = deno_core::resolve_path(
+        file_path,
+        env::current_dir()
+          .expect("failed getting current_dir")
+          .as_path(),
+      )
+      .expect("failed resolving path");
+      let mut worker =
+        build_worker(&main_module).expect("failed initializing worker");
+
+      while let Some(message) = rx.recv().await {
+        match message {
+          Operation::NotifyStart(response_channel) => {
+            worker
+              .execute_main_module(&main_module)
+              .await
+              // TODO: send a message back for this case.
+              .expect("failed executing main module");
+
+            let result = worker.run_event_loop(false).await;
+            response_channel
+              .send(result)
+              .await
+              .expect("failed sending result response");
+          }
+          Operation::NotifyDone(_response_channel) => {
+            // TODO: make this real
+            ()
+          }
+        }
+      }
+    });
+  });
+
+  let rt = runtime.read().expect("could not get read lock on runtime");
+
+  rt.spawn(async move {
+    let (notify_start_response_tx, mut notify_start_response_rx): (
+      Sender<Result<(), deno_core::anyhow::Error>>,
+      Receiver<Result<(), deno_core::anyhow::Error>>,
+    ) = channel(64);
+
+    tx.send(Operation::NotifyStart(notify_start_response_tx))
+      .await
+      .expect("failed sending start message");
+
+    while let Some(message) = notify_start_response_rx.recv().await {
+      match message {
+        Ok(()) => {
+          println!("worker finished");
+        }
+        Err(e) => {
+          eprintln!("worker error: {:?}", e);
+        }
+      }
+    }
+  });
+
+  handle.join().map_err(|e| AnyError::msg(format!("{:?}", e)))
 }
 
 fn main() {
@@ -200,11 +293,11 @@ fn main() {
   }
   let file_path = &args[0];
 
-  let runtime = tokio::runtime::Builder::new_current_thread()
-    .enable_all()
-    .build()
-    .unwrap();
-  if let Err(error) = runtime.block_on(run_js(file_path)) {
+  // let runtime = tokio::runtime::Builder::new_current_thread()
+  //   .enable_all()
+  //   .build()
+  //   .unwrap();
+  if let Err(error) = run_js(file_path.to_string()) {
     eprintln!("error: {error}");
   }
 }
