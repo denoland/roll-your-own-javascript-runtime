@@ -32,6 +32,9 @@ This forked repo builds up the original [roll-your-own-javascript-runtime](https
 2. Making it multi-threaded, so that multiple scripts can be run in parallel, registering tasks that are run uniquely.
 3. Demonstrating how to use the node built-ins and NPM packages via pre-bundling.
 
+It also removes snapshotting, because it didn't seem to work any more after the move to `MainWorker`.
+Maybe it could be figured out and re-added.
+
 # Use Node Built-ins
 
 The embedded Deno runtime includes the node built-ins. So just prefix those imports with `node:`.
@@ -94,7 +97,7 @@ There is no sharing of data across the `JsRuntime` workers. Every worker registe
 It's expected that every worker registers all of the same tasks using the same task IDs, which are generated as descriptive identifiers
 of the work to be done for each task.
 
-The embedded runtime, runs each worker `JsRuntime` in a separate thread.
+The embedded runtime runs each worker `JsRuntime` in a separate thread.
 
 Each worker registers all of the tasks.
 
