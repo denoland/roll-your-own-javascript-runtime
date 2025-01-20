@@ -242,13 +242,20 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
         while let Some(message) = rx.recv().await {
           match message {
             Operation::NotifyStart(response_channel) => {
-              let result = worker.execute_main_module(&main_module).await;
-
-              if let Err(e) = result {
-                response_channel
-                  .send(Err(e))
-                  .await
-                  .expect("failed sending result response");
+              match worker.preload_main_module(&main_module).await {
+                Ok(main_module_id) => {
+                  if let Err(e) = worker.evaluate_module(main_module_id).await {
+                    response_channel
+                      .send(Err(e))
+                      .await
+                      .expect("failed sending result response");
+                  }
+                }
+                Err(e) => {
+                  response_channel.send(Err(e)).await.expect(
+                    "failed sending preload_main_module result response",
+                  );
+                }
               };
 
               let result = worker.run_event_loop(false).await;
