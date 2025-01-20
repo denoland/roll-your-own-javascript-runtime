@@ -50,6 +50,11 @@ fn op_remove_file(#[string] path: String) -> Result<(), AnyError> {
   Ok(())
 }
 
+#[op2(fast)]
+fn op_bark() {
+  println!("woof");
+}
+
 struct TsModuleLoader;
 
 impl deno_core::ModuleLoader for TsModuleLoader {
@@ -121,8 +126,8 @@ impl deno_core::ModuleLoader for TsModuleLoader {
   }
 }
 
-static RUNTIME_SNAPSHOT: &[u8] =
-  include_bytes!(concat!(env!("OUT_DIR"), "/RUNJS_SNAPSHOT.bin"));
+//static RUNTIME_SNAPSHOT: &[u8] =
+//  include_bytes!(concat!(env!("OUT_DIR"), "/RUNJS_SNAPSHOT.bin"));
 
 extension!(
   runjs,
@@ -132,7 +137,12 @@ extension!(
     op_remove_file,
     op_fa_fetch,
     op_set_timeout,
+    op_bark
   ],
+  // list of all JS files in the extension
+  esm_entry_point = "ext:runjs/src/runtime.js",
+  // the entrypoint to our extension
+  esm = ["src/runtime.js"]
 );
 
 async fn run_js(file_path: &str) -> Result<(), AnyError> {
@@ -160,8 +170,10 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
       fs,
     },
     WorkerOptions {
-      extensions: vec![runjs::init_ops()],
-      startup_snapshot: Some(RUNTIME_SNAPSHOT),
+      extensions: vec![runjs::init_ops_and_esm()],
+      //startup_snapshot: Some(RUNTIME_SNAPSHOT),
+      startup_snapshot: None,
+      skip_op_registration: false,
       ..Default::default()
     },
   );

@@ -1,4 +1,7 @@
-const { core } = Deno;
+//const { core } = Deno;
+import { core } from "ext:core/mod.js";
+//import { op_bark } from "ext:runjs/op_bark";
+const { op_bark } = core.ops;
 
 function argsToMessage(...args) {
   return args.map((arg) => JSON.stringify(arg)).join(" ");
@@ -26,6 +29,13 @@ globalThis.runjs = {
   fetch: async (url) => {
     return core.ops.op_fetch(url);
   },
+};
+
+globalThis.originalBarkTypeof = [typeof op_bark, typeof core.ops.op_bark];
+
+globalThis.bark = () => {
+  core.print(`[bark original typeof]: ${argsToMessage(originalBarkTypeof)}\n`);
+  op_bark();
 };
 
 globalThis.report = () => {
