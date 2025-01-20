@@ -11,6 +11,8 @@ use deno_runtime::permissions::RuntimePermissionDescriptorParser;
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use deno_runtime::worker::WorkerServiceOptions;
+use deno_runtime::BootstrapOptions;
+use deno_runtime::WorkerExecutionMode;
 use std::env;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -153,6 +155,43 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
   let permission_desc_parser =
     Arc::new(RuntimePermissionDescriptorParser::new(fs.clone()));
 
+  let bootstrap = BootstrapOptions {
+    mode: WorkerExecutionMode::Run,
+    ..Default::default()
+  };
+
+  match bootstrap.mode {
+    WorkerExecutionMode::None => {
+      println!("DEBUG: mode None");
+    }
+    WorkerExecutionMode::Run => {
+      println!("DEBUG: mode Run");
+    }
+    WorkerExecutionMode::Worker => {
+      println!("DEBUG: mode worker");
+    }
+    WorkerExecutionMode::Eval => {
+      println!("DEBUG: mode Eval");
+    }
+    WorkerExecutionMode::Repl => {
+      println!("DEBUG: mode Repl");
+    }
+    //WorkerExecutionMode::Bench => {
+    //  println!("DEBUG: mode build Bench");
+    //}
+    WorkerExecutionMode::Jupyter => {
+      println!("DEBUG: mode build Jupyter");
+    }
+    _ => {
+      println!("DEBUG: mode other");
+    }
+  }
+
+  println!(
+    "DEBUG enable_op_summary_metrics: {}",
+    bootstrap.enable_op_summary_metrics
+  );
+
   let mut worker = MainWorker::bootstrap_from_options(
     main_module.clone(),
     WorkerServiceOptions {
@@ -173,6 +212,7 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
       extensions: vec![runjs::init_ops_and_esm()],
       //startup_snapshot: Some(RUNTIME_SNAPSHOT),
       startup_snapshot: None,
+      bootstrap,
       skip_op_registration: false,
       ..Default::default()
     },

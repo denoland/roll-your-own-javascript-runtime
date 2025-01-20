@@ -39,7 +39,7 @@ globalThis.bark = () => {
 };
 
 globalThis.report = () => {
-  core.print(`REPORT_CORE: ${argsToMessage(Object.keys(core))}\n`);
+  //core.print(`REPORT_CORE: ${argsToMessage(Object.keys(core))}\n`);
   core.print(`REPORT_OPS: ${argsToMessage(Object.keys(core.ops))}\n`);
 };
 
