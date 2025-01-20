@@ -160,38 +160,6 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
     ..Default::default()
   };
 
-  match bootstrap.mode {
-    WorkerExecutionMode::None => {
-      println!("DEBUG: mode None");
-    }
-    WorkerExecutionMode::Run => {
-      println!("DEBUG: mode Run");
-    }
-    WorkerExecutionMode::Worker => {
-      println!("DEBUG: mode worker");
-    }
-    WorkerExecutionMode::Eval => {
-      println!("DEBUG: mode Eval");
-    }
-    WorkerExecutionMode::Repl => {
-      println!("DEBUG: mode Repl");
-    }
-    //WorkerExecutionMode::Bench => {
-    //  println!("DEBUG: mode build Bench");
-    //}
-    WorkerExecutionMode::Jupyter => {
-      println!("DEBUG: mode build Jupyter");
-    }
-    _ => {
-      println!("DEBUG: mode other");
-    }
-  }
-
-  println!(
-    "DEBUG enable_op_summary_metrics: {}",
-    bootstrap.enable_op_summary_metrics
-  );
-
   let mut worker = MainWorker::bootstrap_from_options(
     main_module.clone(),
     WorkerServiceOptions {
