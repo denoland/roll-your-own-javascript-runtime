@@ -201,8 +201,6 @@ fn build_worker(main_module: &ModuleSpecifier) -> Result<MainWorker, AnyError> {
 }
 
 fn run_js(file_path: String) -> Result<(), AnyError> {
-  let (tx, mut rx): (Sender<Operation>, Receiver<Operation>) = channel(64);
-
   let runtime = tokio::runtime::Builder::new_current_thread()
     .enable_all()
     .build()
@@ -210,74 +208,94 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
 
   let runtime = Arc::new(RwLock::new(runtime));
 
-  let runtime_copy = Arc::clone(&runtime);
+  let mut handles = vec![];
 
-  // Launch a new thread for running the Tokio runtime and Worker operations
-  let handle = thread::spawn(move || {
-    let rt = runtime_copy
-      .read()
-      .expect("could not get read lock for runtime");
+  for i in 0..1 {
+    let runtime_copy = Arc::clone(&runtime);
+    let (tx, mut rx): (Sender<Operation>, Receiver<Operation>) = channel(64);
+    let file_path = file_path.clone();
 
-    // Block on the async code
-    rt.block_on(async {
-      let main_module = deno_core::resolve_path(
-        file_path,
-        env::current_dir()
-          .expect("failed getting current_dir")
-          .as_path(),
-      )
-      .expect("failed resolving path");
-      let mut worker =
-        build_worker(&main_module).expect("failed initializing worker");
+    // Launch a new thread for running the Tokio runtime and Worker operations
+    let handle = thread::spawn(move || {
+      let rt = runtime_copy
+        .read()
+        .expect("could not get read lock for runtime");
 
-      while let Some(message) = rx.recv().await {
-        match message {
-          Operation::NotifyStart(response_channel) => {
-            let result = worker.execute_main_module(&main_module).await;
+      // Block on the async code
+      rt.block_on(async {
+        let main_module = deno_core::resolve_path(
+          file_path,
+          env::current_dir()
+            .expect("failed getting current_dir")
+            .as_path(),
+        )
+        .expect("failed resolving path");
+        let mut worker =
+          build_worker(&main_module).expect("failed initializing worker");
 
-            if let Err(e) = result {
+        while let Some(message) = rx.recv().await {
+          match message {
+            Operation::NotifyStart(response_channel) => {
+              let result = worker.execute_main_module(&main_module).await;
+
+              if let Err(e) = result {
+                response_channel
+                  .send(Err(e))
+                  .await
+                  .expect("failed sending result response");
+              };
+
+              let result = worker.run_event_loop(false).await;
               response_channel
-                .send(Err(e))
+                .send(result)
                 .await
                 .expect("failed sending result response");
-            };
+            }
+          }
+        }
+      });
+    });
 
-            let result = worker.run_event_loop(false).await;
-            response_channel
-              .send(result)
-              .await
-              .expect("failed sending result response");
+    handles.push((handle, tx));
+  }
+
+  let (join_handles, operation_senders): (Vec<_>, Vec<_>) =
+    handles.into_iter().unzip();
+
+  for operation_sender in operation_senders {
+    let rt = runtime.read().expect("could not get read lock on runtime");
+
+    rt.spawn(async move {
+      let (notify_start_response_tx, mut notify_start_response_rx): (
+        Sender<Result<(), deno_core::anyhow::Error>>,
+        Receiver<Result<(), deno_core::anyhow::Error>>,
+      ) = channel(64);
+
+      operation_sender
+        .send(Operation::NotifyStart(notify_start_response_tx))
+        .await
+        .expect("failed sending start message");
+
+      while let Some(message) = notify_start_response_rx.recv().await {
+        match message {
+          Ok(()) => {
+            println!("worker finished");
+          }
+          Err(e) => {
+            eprintln!("worker error: {:?}", e);
           }
         }
       }
     });
-  });
+  }
 
-  let rt = runtime.read().expect("could not get read lock on runtime");
+  for handle in join_handles {
+    handle
+      .join()
+      .map_err(|e| AnyError::msg(format!("{:?}", e)))?;
+  }
 
-  rt.spawn(async move {
-    let (notify_start_response_tx, mut notify_start_response_rx): (
-      Sender<Result<(), deno_core::anyhow::Error>>,
-      Receiver<Result<(), deno_core::anyhow::Error>>,
-    ) = channel(64);
-
-    tx.send(Operation::NotifyStart(notify_start_response_tx))
-      .await
-      .expect("failed sending start message");
-
-    while let Some(message) = notify_start_response_rx.recv().await {
-      match message {
-        Ok(()) => {
-          println!("worker finished");
-        }
-        Err(e) => {
-          eprintln!("worker error: {:?}", e);
-        }
-      }
-    }
-  });
-
-  handle.join().map_err(|e| AnyError::msg(format!("{:?}", e)))
+  Ok(())
 }
 
 fn main() {
