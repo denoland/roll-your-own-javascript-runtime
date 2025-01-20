@@ -54,14 +54,10 @@ globalThis.TASKS = {};
 globalThis.registerTask = (id, callback) => {
   op_register_task(id);
   globalThis.TASKS[id] = callback;
-  // register it also with an op that keeps thread-safe state, a HashSet.
 };
 
 function getNextTaskId() {
   return op_get_next_task_id();
-  // for (const taskId in TASKS) {
-  //   return taskId;
-  // }
 }
 
 globalThis.runAllTasks = async () => {
@@ -69,7 +65,6 @@ globalThis.runAllTasks = async () => {
   // The look up just that one.
   let cb, taskId;
 
-  //while ((taskId = getNextTaskId()) !== undefined) {
   while ((taskId = getNextTaskId())) {
     cb = TASKS[taskId];
     delete TASKS[taskId];
