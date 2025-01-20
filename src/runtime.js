@@ -1,4 +1,13 @@
 import { core } from "ext:core/mod.js";
+// It's significant that the ops import works this way.
+// 1. deno_runtime's main.js removes all ops under Deno.core.ops, so
+//    we can't get op_bark from there.
+//    See: https://github.com/denoland/deno/discussions/23248#discussioncomment-11890567
+// 2. we can't `import { op_bark } from "ext:core/ops";` because, on
+//    deno_runtime 0.180.0, we get a runtime error that the module does
+//    not have an export named `op_bark`.
+// 3. we can't `import ops from "ext:core/ops";` because, on deno_runtime 0.180.0
+//    we get a runtime error that the module does not have a default export.
 import * as core_ops from "ext:core/ops";
 const { op_bark } = core_ops;
 
