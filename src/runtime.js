@@ -1,7 +1,6 @@
-//const { core } = Deno;
 import { core } from "ext:core/mod.js";
-//import { op_bark } from "ext:runjs/op_bark";
-const { op_bark } = core.ops;
+import * as core_ops from "ext:core/ops";
+const { op_bark } = core_ops;
 
 function argsToMessage(...args) {
   return args.map((arg) => JSON.stringify(arg)).join(" ");
@@ -31,16 +30,8 @@ globalThis.runjs = {
   },
 };
 
-globalThis.originalBarkTypeof = [typeof op_bark, typeof core.ops.op_bark];
-
 globalThis.bark = () => {
-  core.print(`[bark original typeof]: ${argsToMessage(originalBarkTypeof)}\n`);
   op_bark();
-};
-
-globalThis.report = () => {
-  //core.print(`REPORT_CORE: ${argsToMessage(Object.keys(core))}\n`);
-  core.print(`REPORT_OPS: ${argsToMessage(Object.keys(core.ops))}\n`);
 };
 
 globalThis.setTimeout = async (callback, delay) => {
