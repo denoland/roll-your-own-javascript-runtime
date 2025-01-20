@@ -200,9 +200,6 @@ impl deno_core::ModuleLoader for TsModuleLoader {
   }
 }
 
-//static RUNTIME_SNAPSHOT: &[u8] =
-//  include_bytes!(concat!(env!("OUT_DIR"), "/RUNJS_SNAPSHOT.bin"));
-
 extension!(
   runjs,
   ops = [
@@ -249,7 +246,6 @@ fn build_worker(main_module: &ModuleSpecifier) -> Result<MainWorker, AnyError> {
     },
     WorkerOptions {
       extensions: vec![runjs::init_ops_and_esm()],
-      //startup_snapshot: Some(RUNTIME_SNAPSHOT),
       startup_snapshot: None,
       bootstrap,
       skip_op_registration: false,
@@ -322,21 +318,6 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
                       .await
                       .expect("failed sending result response");
                   }
-
-                  /*
-                  if let Err(e) = register_worker_id_with_worker(
-                    &mut worker,
-                    main_module_id,
-                    Arc::clone(&worker_id_clone),
-                  )
-                  .await
-                  {
-                    response_channel
-                      .send(Err(e))
-                      .await
-                      .expect("failed sending result response");
-                  }
-                  */
                 }
                 Err(e) => {
                   response_channel.send(Err(e)).await.expect(
