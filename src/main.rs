@@ -24,7 +24,6 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 #[derive(Debug)]
 pub enum Operation {
   NotifyStart(Sender<Result<(), deno_core::anyhow::Error>>),
-  NotifyDone(Sender<Result<(), deno_core::anyhow::Error>>),
 }
 
 pub struct AsyncRuntimeHandle {
@@ -245,10 +244,6 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
               .send(result)
               .await
               .expect("failed sending result response");
-          }
-          Operation::NotifyDone(_response_channel) => {
-            // TODO: make this real
-            ()
           }
         }
       }
