@@ -1,4 +1,4 @@
-const mainTasks = ["alpha", "beta", "gamma", "delta"];
+const mainTasks = ["alpha", "beta"];
 
 const subTasks = [];
 

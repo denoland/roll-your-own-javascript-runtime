@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate lazy_static;
+
 use deno_ast::MediaType;
 use deno_ast::ParseParams;
 use deno_core::error::AnyError;
@@ -19,6 +22,7 @@ use deno_runtime::BootstrapOptions;
 use deno_runtime::WorkerExecutionMode;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
+use std::collections::BTreeSet;
 use std::env;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
@@ -27,6 +31,18 @@ use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 const MAX_WORKERS: usize = 4;
+
+struct Tasks {
+  registered: BTreeSet<String>,
+  assigned: BTreeSet<String>,
+}
+
+lazy_static! {
+  static ref TASKS: Arc<RwLock<Tasks>> = Arc::new(RwLock::new(Tasks {
+    registered: BTreeSet::new(),
+    assigned: BTreeSet::new()
+  }));
+}
 
 #[derive(Debug)]
 pub enum Operation {
@@ -71,6 +87,41 @@ async fn op_set_timeout(delay: f64) -> Result<(), AnyError> {
 fn op_remove_file(#[string] path: String) -> Result<(), AnyError> {
   std::fs::remove_file(path)?;
   Ok(())
+}
+
+#[op2(fast)]
+fn op_register_task(#[string] task_id: String) -> Result<(), AnyError> {
+  let mut tasks_guard = TASKS
+    .write()
+    .map_err(|e| deno_core::error::custom_error("LockError", e.to_string()))?;
+
+  match (
+    tasks_guard.registered.get(&task_id),
+    tasks_guard.assigned.get(&task_id),
+  ) {
+    (None, None) => {
+      tasks_guard.registered.insert(task_id);
+    }
+    _ => (),
+  }
+
+  Ok(())
+}
+
+#[op2]
+#[string]
+fn op_get_next_task_id() -> Result<Option<String>, AnyError> {
+  let mut tasks_guard = TASKS
+    .write()
+    .map_err(|e| deno_core::error::custom_error("LockError", e.to_string()))?;
+
+  match tasks_guard.registered.pop_first() {
+    Some(task_id) => {
+      tasks_guard.assigned.insert(task_id.clone());
+      Ok(Some(task_id))
+    }
+    None => Ok(None),
+  }
 }
 
 #[op2(fast)]
@@ -160,7 +211,9 @@ extension!(
     op_remove_file,
     op_fa_fetch,
     op_set_timeout,
-    op_bark
+    op_bark,
+    op_get_next_task_id,
+    op_register_task
   ],
   // list of all JS files in the extension
   esm_entry_point = "ext:runjs/src/runtime.js",
@@ -360,10 +413,6 @@ fn main() {
   }
   let file_path = &args[0];
 
-  // let runtime = tokio::runtime::Builder::new_current_thread()
-  //   .enable_all()
-  //   .build()
-  //   .unwrap();
   if let Err(error) = run_js(file_path.to_string()) {
     eprintln!("error: {error}");
   }
@@ -377,6 +426,7 @@ fn rand_string() -> String {
     .collect()
 }
 
+#[allow(dead_code)]
 async fn register_worker_id_with_worker(
   worker: &mut MainWorker,
   main_module_id: ModuleId,

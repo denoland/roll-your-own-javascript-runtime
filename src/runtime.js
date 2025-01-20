@@ -9,7 +9,7 @@ import { core } from "ext:core/mod.js";
 // 3. we can't `import ops from "ext:core/ops";` because, on deno_runtime 0.180.0
 //    we get a runtime error that the module does not have a default export.
 import * as core_ops from "ext:core/ops";
-const { op_bark } = core_ops;
+const { op_bark, op_register_task, op_get_next_task_id } = core_ops;
 
 function argsToMessage(...args) {
   return args.map((arg) => JSON.stringify(arg)).join(" ");
@@ -52,17 +52,16 @@ globalThis.setTimeout = async (callback, delay) => {
 globalThis.TASKS = {};
 
 globalThis.registerTask = (id, callback) => {
+  op_register_task(id);
   globalThis.TASKS[id] = callback;
   // register it also with an op that keeps thread-safe state, a HashSet.
 };
 
 function getNextTaskId() {
-  // TODO: use the op to get the next task id, so it can be synchronized
-  // across all workers.
-  //return core.ops.op_get_next_task_id();
-  for (const taskId in TASKS) {
-    return taskId;
-  }
+  return op_get_next_task_id();
+  // for (const taskId in TASKS) {
+  //   return taskId;
+  // }
 }
 
 globalThis.runAllTasks = async () => {
@@ -70,7 +69,8 @@ globalThis.runAllTasks = async () => {
   // The look up just that one.
   let cb, taskId;
 
-  while ((taskId = getNextTaskId()) !== undefined) {
+  //while ((taskId = getNextTaskId()) !== undefined) {
+  while ((taskId = getNextTaskId())) {
     cb = TASKS[taskId];
     delete TASKS[taskId];
 
