@@ -245,6 +245,22 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
         while let Some(message) = rx.recv().await {
           match message {
             Operation::NotifyStart(response_channel) => {
+              if let Err(e) = worker.execute_script(
+                "[set-worker-id]",
+                format!(
+                  r#"
+                    globalThis.WORKER_ID = '{}';
+                "#,
+                  worker_id_clone.as_str()
+                )
+                .into(),
+              ) {
+                response_channel
+                  .send(Err(e))
+                  .await
+                  .expect("failed setting WORKER_ID");
+              };
+
               match worker.preload_main_module(&main_module).await {
                 Ok(main_module_id) => {
                   if let Err(e) = worker.evaluate_module(main_module_id).await {
@@ -254,6 +270,7 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
                       .expect("failed sending result response");
                   }
 
+                  /*
                   if let Err(e) = register_worker_id_with_worker(
                     &mut worker,
                     main_module_id,
@@ -266,6 +283,7 @@ fn run_js(file_path: String) -> Result<(), AnyError> {
                       .await
                       .expect("failed sending result response");
                   }
+                  */
                 }
                 Err(e) => {
                   response_channel.send(Err(e)).await.expect(

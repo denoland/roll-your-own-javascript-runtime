@@ -15,6 +15,8 @@ function argsToMessage(...args) {
   return args.map((arg) => JSON.stringify(arg)).join(" ");
 }
 
+globalThis.WORKER_ID = null;
+
 globalThis.console = {
   log: (...args) => {
     core.print(`[out]: ${argsToMessage(...args)}\n`, false);
