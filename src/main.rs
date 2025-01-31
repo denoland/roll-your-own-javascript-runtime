@@ -1,46 +1,55 @@
 use deno_ast::MediaType;
 use deno_ast::ParseParams;
-use deno_core::error::AnyError;
+use deno_core::error::CoreError;
+use deno_core::error::ModuleLoaderError;
 use deno_core::extension;
 use deno_core::op2;
 use deno_core::ModuleLoadResponse;
 use deno_core::ModuleSourceCode;
+use deno_error::JsErrorBox;
 use std::env;
 use std::rc::Rc;
 
 #[op2(async)]
 #[string]
-async fn op_read_file(#[string] path: String) -> Result<String, AnyError> {
-  let contents = tokio::fs::read_to_string(path).await?;
-  Ok(contents)
+async fn op_read_file(
+  #[string] path: String,
+) -> Result<String, std::io::Error> {
+  tokio::fs::read_to_string(path).await
 }
 
 #[op2(async)]
 async fn op_write_file(
   #[string] path: String,
   #[string] contents: String,
-) -> Result<(), AnyError> {
-  tokio::fs::write(path, contents).await?;
-  Ok(())
+) -> Result<(), std::io::Error> {
+  tokio::fs::write(path, contents).await
+}
+
+#[op2(fast)]
+fn op_remove_file(#[string] path: String) -> Result<(), std::io::Error> {
+  std::fs::remove_file(path)
+}
+
+#[op2(fast)]
+fn op_process_task(#[string] path: String) -> Result<(), std::io::Error> {
+  std::fs::remove_file(path)
 }
 
 #[op2(async)]
 #[string]
-async fn op_fetch(#[string] url: String) -> Result<String, AnyError> {
-  let body = reqwest::get(url).await?.text().await?;
-  Ok(body)
+async fn op_fetch(#[string] url: String) -> Result<String, JsErrorBox> {
+  reqwest::get(url)
+    .await
+    .map_err(|e| JsErrorBox::type_error(e.to_string()))?
+    .text()
+    .await
+    .map_err(|e| JsErrorBox::type_error(e.to_string()))
 }
 
 #[op2(async)]
-async fn op_set_timeout(delay: f64) -> Result<(), AnyError> {
+async fn op_set_timeout(delay: f64) {
   tokio::time::sleep(std::time::Duration::from_millis(delay as u64)).await;
-  Ok(())
-}
-
-#[op2(fast)]
-fn op_remove_file(#[string] path: String) -> Result<(), AnyError> {
-  std::fs::remove_file(path)?;
-  Ok(())
 }
 
 struct TsModuleLoader;
@@ -51,8 +60,8 @@ impl deno_core::ModuleLoader for TsModuleLoader {
     specifier: &str,
     referrer: &str,
     _kind: deno_core::ResolutionKind,
-  ) -> Result<deno_core::ModuleSpecifier, AnyError> {
-    deno_core::resolve_import(specifier, referrer).map_err(|e| e.into())
+  ) -> Result<deno_core::ModuleSpecifier, ModuleLoaderError> {
+    deno_core::resolve_import(specifier, referrer).map_err(Into::into)
   }
 
   fn load(
@@ -93,17 +102,23 @@ impl deno_core::ModuleLoader for TsModuleLoader {
           capture_tokens: false,
           scope_analysis: false,
           maybe_syntax: None,
-        })?;
+        })
+        .map_err(JsErrorBox::from_err)?;
         parsed
-          .transpile(&Default::default(), &Default::default())?
+          .transpile(
+            &Default::default(),
+            &Default::default(),
+            &Default::default(),
+          )
+          .map_err(JsErrorBox::from_err)?
           .into_source()
-          .source
+          .text
       } else {
-        code.into_bytes()
+        code
       };
       let module = deno_core::ModuleSource::new(
         module_type,
-        ModuleSourceCode::Bytes(code.into_boxed_slice().into()),
+        ModuleSourceCode::String(code.into()),
         &module_specifier,
         None,
       );
@@ -128,9 +143,10 @@ extension!(
   ]
 );
 
-async fn run_js(file_path: &str) -> Result<(), AnyError> {
+async fn run_js(file_path: &str) -> Result<(), CoreError> {
   let main_module =
-    deno_core::resolve_path(file_path, env::current_dir()?.as_path())?;
+    deno_core::resolve_path(file_path, env::current_dir()?.as_path())
+      .map_err(JsErrorBox::from_err)?;
   let mut js_runtime = deno_core::JsRuntime::new(deno_core::RuntimeOptions {
     module_loader: Some(Rc::new(TsModuleLoader)),
     startup_snapshot: Some(RUNTIME_SNAPSHOT),
